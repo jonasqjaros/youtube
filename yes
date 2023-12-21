@@ -205,7 +205,7 @@
 
                 // Manually set sample search results
                 var sampleResults = [
-                    { videoId: 'video1', title: 'Sample Video 1', channelTitle: 'Sample Channel 1' },
+                    { videoId: 'F2GhFXjQujI', title: 'Bombs Away (offical music video)', channelTitle: 'Shotgun Willy' },
                     { videoId: 'video2', title: 'Sample Video 2', channelTitle: 'Sample Channel 2' },
                     { videoId: 'video3', title: 'Sample Video 3', channelTitle: 'Sample Channel 3' }
                 ];
