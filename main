@@ -49,14 +49,14 @@
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
         }
 
         .video-container {
             position: relative;
             width: 100%;
             padding-bottom: 56.25%; /* 16:9 aspect ratio */
-            margin-bottom: 20px;
+            margin-top: 20px;
         }
 
         iframe {
@@ -67,7 +67,7 @@
         }
 
         .video-details {
-            margin-bottom: 20px;
+            margin-top: 20px;
         }
 
         h1 {
@@ -82,7 +82,7 @@
         }
 
         .comments-section {
-            margin-bottom: 20px;
+            margin-top: 20px;
         }
 
         textarea {
@@ -101,21 +101,49 @@
             border-radius: 4px;
         }
 
-        .search-section {
+        /* Add a new style for saved videos */
+        .saved-video {
+            background-color: #e6f7ff;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+
+        /* Style for the search bar */
+        .search-bar {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            box-sizing: border-box;
             margin-bottom: 20px;
         }
 
+        /* Style for search results */
         .search-results {
             margin-top: 20px;
+        }
+
+        .result-video {
+            background-color: #f9f9f9;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
 
     <div class="container">
+        <!-- Search bar added here -->
+        <input type="text" id="searchBar" class="search-bar" placeholder="Search for videos">
+        <button onclick="searchVideos()">Search</button>
+
+        <!-- Search results section -->
+        <div class="search-results" id="searchResults"></div>
+        
         <label for="videoId">Enter YouTube Video ID:</label>
         <input type="text" id="videoId" placeholder="Enter video ID">
-
         <button onclick="embedVideo()">Embed Video</button>
 
         <div class="video-container" id="videoContainer"></div>
@@ -132,27 +160,22 @@
             <div id="comments"></div>
         </div>
 
-        <div class="search-section">
-            <label for="searchQuery">Search for Videos:</label>
-            <input type="text" id="searchQuery" placeholder="Enter video name">
-            <button onclick="searchVideos()">Search</button>
-        </div>
-
-        <div class="search-results" id="searchResults"></div>
-    </div>
-
+        <button onclick="saveWatchedVideo()">Save Watched Video</button>
+        <button onclick="viewWatchedVideos()">View Watched Videos</button>
+        <div id="watchedVideos"></div>
     <script>
+        var apiKey = 'AIzaSyCjS-8uAsUI-BXrKDmfYzQL6zENsEepOJ8'; // Your YouTube API Key
+
         function embedVideo() {
             var videoId = document.getElementById('videoId').value;
             var videoContainer = document.getElementById('videoContainer');
             var videoDetails = document.getElementById('videoDetails');
 
             if (videoId) {
-                // Clear previous video, comments, and search results
+                // Clear previous video and comments
                 videoContainer.innerHTML = '';
                 videoDetails.innerHTML = '';
                 document.getElementById('comments').innerHTML = '';
-                document.getElementById('searchResults').innerHTML = '';
 
                 // Embed new video
                 videoContainer.innerHTML = `
@@ -161,8 +184,8 @@
                         frameborder="0" allow="autoplay; encrypted-media" allowfullscreen>
                     </iframe>`;
 
-                // Fetch video details (title and description)
-                fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=YOUR_YOUTUBE_API_KEY`)
+                // Fetch video details (title and description) from YouTube API
+                fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`)
                     .then(response => response.json())
                     .then(data => {
                         const videoTitle = data.items[0].snippet.title;
@@ -172,6 +195,11 @@
                         videoDetails.innerHTML = `
                             <h1>${videoTitle}</h1>
                             <p>${videoDescription}</p>`;
+                        
+                        // Save the watched video information to local storage
+                        var watchedVideos = JSON.parse(localStorage.getItem('watchedVideos')) || [];
+                        watchedVideos.push({ id: videoId, title: videoTitle });
+                        localStorage.setItem('watchedVideos', JSON.stringify(watchedVideos));
                     })
                     .catch(error => console.error('Error fetching video details:', error));
             } else {
@@ -185,12 +213,25 @@
             var commentText = commentInput.value;
 
             if (commentText) {
-                // Create a new comment element
+                // Send the comment to the Google Sheets script
+                var scriptUrl = 'https://script.google.com/macros/s/AKfycbzzbPEwgPLcQ5lIwejeTmvnYbAJqXJMk9bHjrdJHRA/dev';
+                var payload = { comment: commentText };
+
+                fetch(scriptUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload),
+                })
+                .then(response => response.json())
+                .then(data => console.log(data))
+                .catch(error => console.error('Error sending comment:', error));
+
+                // Display the comment locally
                 var commentElement = document.createElement('div');
                 commentElement.classList.add('comment');
                 commentElement.textContent = commentText;
-
-                // Append the new comment to the comments container
                 commentsContainer.appendChild(commentElement);
 
                 // Clear the comment input
@@ -200,44 +241,91 @@
             }
         }
 
-        function searchVideos() {
-            var searchQuery = document.getElementById('searchQuery').value;
-            var searchResultsContainer = document.getElementById('searchResults');
+        function saveWatchedVideo() {
+            var videoId = document.getElementById('videoId').value;
+            var watchedVideos = JSON.parse(localStorage.getItem('watchedVideos')) || [];
 
-            if (searchQuery) {
-                // Clear previous search results
-                searchResultsContainer.innerHTML = '';
+            if (videoId) {
+                // Check if the video is already saved
+                var existingVideo = watchedVideos.find(video => video.id === videoId);
+                if (!existingVideo) {
+                    // Fetch video details (title) from YouTube API
+                    fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            const videoTitle = data.items[0].snippet.title;
 
-                // Fetch video search results
-                fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=video&key=YOUR_YOUTUBE_API_KEY`)
-                    .then(response => response.json())
-                    .then(data => {
-                        // Display search results
-                        data.items.forEach(item => {
-                            const videoId = item.id.videoId;
-                            const videoTitle = item.snippet.title;
-                            const channelTitle = item.snippet.channelTitle;
+                            // Save the watched video information to local storage
+                            watchedVideos.push({ id: videoId, title: videoTitle });
+                            localStorage.setItem('watchedVideos', JSON.stringify(watchedVideos));
 
-                            // Create a new result element
-                            var resultElement = document.createElement('div');
-                            resultElement.classList.add('search-result');
-                            resultElement.innerHTML = `
-                                <p><strong>${videoTitle}</strong> by ${channelTitle}</p>
-                                <button onclick="embedSearchedVideo('${videoId}')">Embed</button>`;
-
-                            // Append the new result to the search results container
-                            searchResultsContainer.appendChild(resultElement);
-                        });
-                    })
-                    .catch(error => console.error('Error fetching search results:', error));
+                            // Display confirmation message
+                            alert(`"${videoTitle}" has been saved to your watched videos.`);
+                        })
+                        .catch(error => console.error('Error fetching video details:', error));
+                } else {
+                    alert('This video is already in your watched videos.');
+                }
             } else {
-                alert('Please enter a search query');
+                alert('Please enter a YouTube video ID');
             }
         }
 
-        function embedSearchedVideo(videoId) {
-            document.getElementById('videoId').value = videoId;
-            embedVideo();
+        function viewWatchedVideos() {
+            var watchedVideos = JSON.parse(localStorage.getItem('watchedVideos')) || [];
+            var watchedVideosContainer = document.getElementById('watchedVideos');
+            watchedVideosContainer.innerHTML = '';
+
+            if (watchedVideos.length > 0) {
+                watchedVideos.forEach(video => {
+                    var videoElement = document.createElement('div');
+                    videoElement.classList.add('saved-video');
+                    videoElement.textContent = `${video.title} (ID: ${video.id})`;
+                    watchedVideosContainer.appendChild(videoElement);
+                });
+            } else {
+                watchedVideosContainer.textContent = 'No watched videos yet.';
+            }
+        }
+
+        // Function to perform video search
+        function searchVideos() {
+            var searchQuery = document.getElementById('searchBar').value;
+
+            // Clear previous search results
+            document.getElementById('searchResults').innerHTML = '';
+
+            // If the search query is not empty
+            if (searchQuery.trim() !== '') {
+                // Perform a search using YouTube API
+                fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=video&key=${apiKey}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        // Display search results
+                        if (data.items.length > 0) {
+                            data.items.forEach(item => {
+                                var resultElement = document.createElement('div');
+                                resultElement.classList.add('result-video');
+                                resultElement.textContent = item.snippet.title;
+                                resultElement.onclick = function() {
+                                    // Embed the selected video
+                                    document.getElementById('videoId').value = item.id.videoId;
+                                    embedVideo();
+                                };
+                                document.getElementById('searchResults').appendChild(resultElement);
+                            });
+                        } else {
+                            // No results found
+                            var noResultsElement = document.createElement('div');
+                            noResultsElement.textContent = 'No results found!';
+                            document.getElementById('searchResults').appendChild(noResultsElement);
+                        }
+                    })
+                    .catch(error => console.error('Error fetching search results:', error));
+            } else {
+                // Empty search query
+                alert('Please enter a search query');
+            }
         }
     </script>
 
