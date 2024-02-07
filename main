@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -110,19 +109,39 @@
             border-radius: 4px;
         }
 
-        /* Add style for search results */
-        .search-result {
-            margin-bottom: 20px;
-            border: 1px solid #ccc;
+        /* Style for the search bar */
+        .search-bar {
+            width: 100%;
             padding: 10px;
+            font-size: 16px;
+            box-sizing: border-box;
+            margin-bottom: 20px;
+        }
+
+        /* Style for search results */
+        .search-results {
+            margin-top: 20px;
+        }
+
+        .result-video {
+            background-color: #f9f9f9;
+            padding: 10px;
+            margin-bottom: 10px;
             border-radius: 4px;
+            cursor: pointer;
         }
     </style>
 </head>
-
 <body>
 
     <div class="container">
+        <!-- Search bar added here -->
+        <input type="text" id="searchBar" class="search-bar" placeholder="Search for videos">
+        <button onclick="searchVideos()">Search</button>
+
+        <!-- Search results section -->
+        <div class="search-results" id="searchResults"></div>
+        
         <label for="videoId">Enter YouTube Video ID:</label>
         <input type="text" id="videoId" placeholder="Enter video ID">
         <button onclick="embedVideo()">Embed Video</button>
@@ -144,36 +163,15 @@
         <button onclick="saveWatchedVideo()">Save Watched Video</button>
         <button onclick="viewWatchedVideos()">View Watched Videos</button>
         <div id="watchedVideos"></div>
-
-        <!-- New section for unblocking YouTube videos -->
-        <hr>
-        <h2>YouTube Unblocked</h2>
-        <label for="unblockUrl">Insert YouTube Link:</label>
-        <input type="text" id="unblockUrl" placeholder="Enter YouTube URL">
-        <button onclick="unblockVideo()">Watch Unblocked Video</button>
-
-        <div id="unblockVideoHolder" class="video-container" style="display: none;"></div>
-
-        <!-- Search bar section -->
-        <hr>
-        <h2>YouTube Search</h2>
-        <label for="searchQuery">Search for videos:</label>
-        <input type="text" id="searchQuery" placeholder="Enter search query">
-        <button onclick="searchVideos()">Search</button>
-
-        <div id="searchResults"></div>
-
-    </div>
-
     <script>
         var apiKey = 'AIzaSyCjS-8uAsUI-BXrKDmfYzQL6zENsEepOJ8'; // Your YouTube API Key
 
-        function embedVideo(videoId) {
-            var selectedVideoId = videoId || document.getElementById('videoId').value;
+        function embedVideo() {
+            var videoId = document.getElementById('videoId').value;
             var videoContainer = document.getElementById('videoContainer');
             var videoDetails = document.getElementById('videoDetails');
 
-            if (selectedVideoId) {
+            if (videoId) {
                 // Clear previous video and comments
                 videoContainer.innerHTML = '';
                 videoDetails.innerHTML = '';
@@ -182,12 +180,12 @@
                 // Embed new video
                 videoContainer.innerHTML = `
                     <iframe width="100%" height="100%" 
-                        src="https://www.youtube-nocookie.com/embed/${selectedVideoId}" 
+                        src="https://www.youtube-nocookie.com/embed/${videoId}" 
                         frameborder="0" allow="autoplay; encrypted-media" allowfullscreen>
                     </iframe>`;
 
                 // Fetch video details (title and description) from YouTube API
-                fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${selectedVideoId}&key=${apiKey}`)
+                fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`)
                     .then(response => response.json())
                     .then(data => {
                         const videoTitle = data.items[0].snippet.title;
@@ -197,10 +195,10 @@
                         videoDetails.innerHTML = `
                             <h1>${videoTitle}</h1>
                             <p>${videoDescription}</p>`;
-
+                        
                         // Save the watched video information to local storage
                         var watchedVideos = JSON.parse(localStorage.getItem('watchedVideos')) || [];
-                        watchedVideos.push({ id: selectedVideoId, title: videoTitle });
+                        watchedVideos.push({ id: videoId, title: videoTitle });
                         localStorage.setItem('watchedVideos', JSON.stringify(watchedVideos));
                     })
                     .catch(error => console.error('Error fetching video details:', error));
@@ -226,9 +224,9 @@
                     },
                     body: JSON.stringify(payload),
                 })
-                    .then(response => response.json())
-                    .then(data => console.log(data))
-                    .catch(error => console.error('Error sending comment:', error));
+                .then(response => response.json())
+                .then(data => console.log(data))
+                .catch(error => console.error('Error sending comment:', error));
 
                 // Display the comment locally
                 var commentElement = document.createElement('div');
@@ -290,72 +288,46 @@
             }
         }
 
-        function unblockVideo() {
-            var unblockUrl = document.getElementById('unblockUrl').value;
-            var unblockVideoHolder = document.getElementById('unblockVideoHolder');
-
-            if (unblockUrl) {
-                // Clear previous unblocked video
-                unblockVideoHolder.innerHTML = '';
-
-                // Extract video ID from YouTube URL
-                var videoId = extractVideoId(unblockUrl);
-
-                // Embed unblocked video
-                if (videoId) {
-                    unblockVideoHolder.innerHTML = `
-                        <iframe width="100%" height="100%" 
-                            src="https://www.youtube-nocookie.com/embed/${videoId}" 
-                            frameborder="0" allow="autoplay; encrypted-media" allowfullscreen>
-                        </iframe>`;
-
-                    // Display the unblocked video in the normal video section as well
-                    embedVideo(videoId);
-                } else {
-                    alert('Invalid YouTube URL. Please enter a valid URL.');
-                }
-            } else {
-                alert('Please enter a YouTube URL');
-            }
-        }
-
+        // Function to perform video search
         function searchVideos() {
-            var searchQuery = document.getElementById('searchQuery').value;
-            var searchResultsContainer = document.getElementById('searchResults');
+            var searchQuery = document.getElementById('searchBar').value;
 
-            if (searchQuery) {
-                // Clear previous search results
-                searchResultsContainer.innerHTML = '';
+            // Clear previous search results
+            document.getElementById('searchResults').innerHTML = '';
 
-                // Fetch search results from YouTube API
-                fetch(`https://www.googleapis.com/youtube/v3/search?q=${searchQuery}&part=snippet&type=video&key=${apiKey}`)
+            // If the search query is not empty
+            if (searchQuery.trim() !== '') {
+                // Perform a search using YouTube API
+                fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${searchQuery}&type=video&key=${apiKey}`)
                     .then(response => response.json())
                     .then(data => {
-                        data.items.forEach(item => {
-                            var videoElement = document.createElement('div');
-                            videoElement.classList.add('search-result');
-                            videoElement.innerHTML = `
-                                <h3>${item.snippet.title}</h3>
-                                <p>${item.snippet.description}</p>
-                                <button onclick="embedVideo('${item.id.videoId}')">Watch</button>
-                            `;
-                            searchResultsContainer.appendChild(videoElement);
-                        });
+                        // Display search results
+                        if (data.items.length > 0) {
+                            data.items.forEach(item => {
+                                var resultElement = document.createElement('div');
+                                resultElement.classList.add('result-video');
+                                resultElement.textContent = item.snippet.title;
+                                resultElement.onclick = function() {
+                                    // Embed the selected video
+                                    document.getElementById('videoId').value = item.id.videoId;
+                                    embedVideo();
+                                };
+                                document.getElementById('searchResults').appendChild(resultElement);
+                            });
+                        } else {
+                            // No results found
+                            var noResultsElement = document.createElement('div');
+                            noResultsElement.textContent = 'No results found!';
+                            document.getElementById('searchResults').appendChild(noResultsElement);
+                        }
                     })
                     .catch(error => console.error('Error fetching search results:', error));
             } else {
+                // Empty search query
                 alert('Please enter a search query');
             }
-        }
-
-        function extractVideoId(url) {
-            // Extract video ID from YouTube URL
-            var regExp = /^.*(youtu.be\/|v\/|e\/|u\/\w+\/|embed\/|v=)([^#\&\?]*).*/;
-            var match = url.match(regExp);
-            return (match && match[2].length === 11) ? match[2] : null;
         }
     </script>
 
 </body>
-
 </html>
